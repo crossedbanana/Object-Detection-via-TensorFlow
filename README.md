@@ -25,7 +25,7 @@ Hello from Docker!
 This message shows that your installation appears to be working correctly.
 ...
 ```
-##### Run and test the TensorFlow image
+##### Run and Test the TensorFlow Image
 Now that you've confirmed that Docker is working, test out the TensorFlow image:
 ```
 docker run -it tensorflow/tensorflow:1.1.0 bash
@@ -67,21 +67,20 @@ docker run -it \
 ```
 Your prompt will change to ```root@xxxxxxxxx:/tf_files#```
 
-## Retrieve training images
-In order to train the TensorFlow model, we need to gather some images of different categories. I already gathered some sample images that you can download from this repository. Go ahead to download the folder ```train_images```. 
+## Retrieve Training Images
+In order to train the TensorFlow model, we need to gather some images of different categories. I already gathered some sample images that you can download from this repository. Go ahead to download the folder ```train_images``` and put it under the working directory ```tf_files```. 
 
-You may also gather your own training images. Make sure you place them in folders which labeled with corresponding categories.
+You may also gather your own training images. Make sure you place them in folders which labeled with corresponding categories, and do the same as above, put all the folders in the folder ```train_images``` under the working directory ```tf_files```.
 
 ## Retrain Inception
 
-The retrain script is part of the tensorflow repo, but it is not installed as part of the pip package. So you need to download it manually, to the current directory:
+The retrain script is part of the tensorflow repo, but it is not installed as part of the pip package. So you need to download it manually, to the current directory (tf_files):
 ```
 curl -O https://raw.githubusercontent.com/tensorflow/tensorflow/r1.1/tensorflow/examples/image_retraining/retrain.py
 ```
-curl -O https://raw.githubusercontent.com/tensorflow/tensorflow/r1.1/tensorflow/examples/image_retraining/retrain.py
 At this point, we have a trainer, we have data, so let's train! We will train the Inception v3 network.
 
-As noted in the introduction, Inception is a huge image classification model with millions of parameters that can differentiate a large number of kinds of images. We're only training the final layer of that network, so training will end in a reasonable amount of time.
+Inception is a huge image classification model with millions of parameters that can differentiate a large number of kinds of images. We're only training the final layer of that network, so training will end in a reasonable amount of time.
 
 Start your image retraining with one big command (note the --summaries_dir option, sending training progress reports to the directory that tensorboard is monitoring) :
 ```
@@ -92,7 +91,7 @@ python retrain.py \
   --summaries_dir=training_summaries/basic \
   --output_graph=retrained_graph.pb \
   --output_labels=retrained_labels.txt \
-  --image_dir=flower_photos
+  --image_dir=train_images
 ```
 
 This script downloads the pre-trained Inception v3 model, adds a new final layer, and trains that layer on the sample photos you've downloaded.
@@ -106,9 +105,78 @@ python retrain.py \
   --summaries_dir=training_summaries/long \
   --output_graph=retrained_graph.pb \
   --output_labels=retrained_labels.txt \
-  --image_dir=flower_photos
+  --image_dir=train_images
 ```
 More detailed steps and explanation about retraining images can be found [here](https://www.tensorflow.org/tutorials/image_retraining).
 
+## Image Recognition
+The retraining script will write out a version of the Inception v3 network with a final layer retrained to your categories to ```tf_files/retrained_graph.pb``` and a text file containing the labels to ```tf_files/retrained_labels.txt```.
+
+These files are both in a format that the [C++ and Python image classification examples](https://www.tensorflow.org/versions/master/tutorials/image_recognition/index.html) can use, so you can start using your new model immediately.
+
+### Classifying an image
+Here is a Python script that loads your new graph file and predicts with it.
+
+#### label_image.py
+```python
+import numpy as np
+import tensorflow as tf, sys
+from PIL import Image
+import io
+
+def classifier(image_data, label_path, retrained_path):
+    # Loads label file, strips off carriage return
+    label_lines = [line.rstrip() for line 
+                       in tf.gfile.GFile(label_path)]
+
+    # Unpersists graph from file
+    with tf.gfile.FastGFile(retrained_path, 'rb') as f:
+        graph_def = tf.GraphDef()
+        graph_def.ParseFromString(f.read())
+        _ = tf.import_graph_def(graph_def, name='')
+
+    with tf.Session() as sess:
+        # Feed the image_data as input to the graph and get first prediction
+        softmax_tensor = sess.graph.get_tensor_by_name('final_result:0')
+
+        predictions = sess.run(softmax_tensor, \
+                 {'DecodeJpeg/contents:0': image_data})
+
+        # Sort to show labels of first prediction in order of confidence
+        top_k = predictions[0].argsort()[-len(predictions[0]):][::-1]
+
+        for node_id in top_k:
+            human_string = label_lines[node_id]
+            score = predictions[0][node_id]
+            print('%s (score = %.2f)' % (human_string, score))
+            
+```
+#### Define path in your local device
+```python
+label_path = "/Users/justinwu/tf_files/retrained_labels.txt"
+retrained_path = "/Users/justinwu/tf_files/retrained_graph.pb"
+```
+
+Let's use the model to try classify a test image:
+![test](images/test.jpg)
+
+The script to load image and classify is as below, make sure you put in correct directory of the image.
+```python
+img = Image.open('/Users/justinwu/Desktop/test.jpg', mode='r')
 
 
+imgByteArray = io.BytesIO()
+img.save(imgByteArray, format='JPEG')
+imgByteArray = imgByteArray.getvalue()
+
+# Classify
+classifier(imgByteArray,label_path,retrained_path)
+```
+And the result is:
+```
+car (score = 0.98)
+road (score = 0.01)
+building (score = 0.01)
+sky (score = 0.00)
+tree (score = 0.00)
+```
