@@ -10,11 +10,11 @@ This repository shows a simple way to implement sliding window object detection 
 Experienced users may prefer to [install TensorFlow manually](https://www.tensorflow.org/install/), and skip this section.
 This repository recommends using Docker (see below).
 
-##### Setup Docker
+#### Setup Docker
 
 If you don't have docker installed already you can [download the installer here](https://www.docker.com/community-edition).
 
-##### Test your Docker installation
+#### Test your Docker installation
 To test your Docker installation try running the following command in the terminal :
 ```
 docker run hello-world
@@ -25,7 +25,7 @@ Hello from Docker!
 This message shows that your installation appears to be working correctly.
 ...
 ```
-##### Run and Test the TensorFlow Image
+#### Run and Test the TensorFlow Image
 Now that you've confirmed that Docker is working, test out the TensorFlow image:
 ```
 docker run -it tensorflow/tensorflow:1.1.0 bash
@@ -48,10 +48,10 @@ print(sess.run(hello))
 ```
 This should print ```Hello TensorFlow!``` (and a couple of warnings after the tf.Session line).
 
-##### Exit Docker
+#### Exit Docker
 Now press ```Ctrl-d```, on a blank line, once to exit python, and a second time to exit the docker image.
 
-### Relaunch Docker
+#### Relaunch Docker
 
 Now create the working directory:
 ```
@@ -160,11 +160,12 @@ retrained_path = "/Users/justinwu/tf_files/retrained_graph.pb"
 Let's use the model to try classify a test image:
 ![test](images/test.jpg)
 
-The script to load image and classify is as below, make sure you put in correct directory of the image.
+The following script is to load images and convert them into byte array so that it fits the format of TensorFlow model. Make sure you enter correct directory of the image.
 ```python
+# Load image
 img = Image.open('/Users/justinwu/Desktop/test.jpg', mode='r')
 
-
+# Convert image to Byte array
 imgByteArray = io.BytesIO()
 img.save(imgByteArray, format='JPEG')
 imgByteArray = imgByteArray.getvalue()
@@ -180,3 +181,78 @@ building (score = 0.01)
 sky (score = 0.00)
 tree (score = 0.00)
 ```
+## Object Detection
+
+Up to this point, we are abale to do image recognition using the TensorFlow model, and here we are going to implement sliding window skill in order to accomplish object detection.
+
+We will be using a Google street view picture as an example:
+![street view](images/test2.jpg)
+
+The script is as below:
+```python
+# change this as you see fit
+image_path = '/Users/justinwu/Desktop/test2.jpg'
+
+# Convert image to np.array
+image = Image.open(image_path, mode='r')
+image_array = np.array(image)
+
+# Sliding window
+scale_x = 7
+scale_y = 5
+y_len,x_len,_ = image_array.shape
+
+for y in range(scale_y):
+    for x in range(scale_x):
+        print('(%s,%s)' % (x+1, y+1))
+        cropped_image = Image.fromarray(image_array[(y*y_len)/scale_y:((y+1)*y_len)/scale_y,
+                                      (x*x_len)/scale_x:((x+1)*x_len)/scale_x,:])
+        imgByteArray = io.BytesIO()
+        cropped_image.save(imgByteArray, format='JPEG')
+        imgByteArray = imgByteArray.getvalue()
+
+        # Classify
+        classifier(imgByteArray,label_path,retrained_path)
+```
+You can change the size of the window by adjusting ```scale_x``` and ```scale_y```. 
+The model can identify objects according to the images we trained. In this example it classifies 5 categories, and the result highly depends on the images you chose to train. Some identified objects are as below:
+
+![sky](images/sky.jpg)
+```
+(3,1)
+sky (score = 0.90)
+road (score = 0.06)
+tree (score = 0.02)
+car (score = 0.01)
+building (score = 0.01)
+```
+![building](images/building.jpg)
+```
+(6,2)
+building (score = 0.94)
+tree (score = 0.02)
+road (score = 0.02)
+sky (score = 0.02)
+car (score = 0.01)
+```
+![tree](images/tree.jpg)
+```
+(2,3)
+tree (score = 0.88)
+sky (score = 0.03)
+road (score = 0.03)
+building (score = 0.03)
+car (score = 0.02)
+```
+![car](images/car.jpg)
+```
+(6,4)
+car (score = 0.93)
+building (score = 0.02)
+road (score = 0.02)
+sky (score = 0.01)
+tree (score = 0.01)
+```
+Overall, the model is pretty accurate on all predictions. Some people might get error when executing the script:
+```ValueError: GraphDef cannot be larger than 2GB.```
+Click [here](https://stackoverflow.com/questions/36349049/overcome-graphdef-cannot-be-larger-than-2gb-in-tensorflow)for some suggested solutions.
