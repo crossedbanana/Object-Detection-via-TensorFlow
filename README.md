@@ -255,4 +255,4 @@ tree (score = 0.01)
 ```
 Overall, the model is pretty accurate on all predictions. Some people might get error when executing the script:
 ```ValueError: GraphDef cannot be larger than 2GB.```
-Click [here](https://stackoverflow.com/questions/36349049/overcome-graphdef-cannot-be-larger-than-2gb-in-tensorflow)for some suggested solutions.
+Click [here](https://stackoverflow.com/questions/36349049/overcome-graphdef-cannot-be-larger-than-2gb-in-tensorflow) for some suggested solutions.
